@@ -20,6 +20,10 @@ def parse_args():
         help = 'design probe number'
     )
     parser.add_argument(
+        '-mr', '--move_range', type=int,
+        help = 'search range to find the sequence with lowest GC content, default is 1/4 of the interval'
+    )
+    parser.add_argument(
         '-gct', '--gc_percentage_threshold', type=int, default=60,
         help = 'the gc content percentage threshold'
     )
@@ -66,23 +70,46 @@ def parse_fasta(fn_fasta):
     return dict_name_SEQ
 
 
-def design_probe(SEQ, probe_length, probe_number):
+def choose_low_gc_seq(SEQ, probe_length, range_st, range_ed):
+    min_GC = 100
+    min_idx = None
+    min_SEQ = None
+    for i in range(range_st, range_ed+1):
+        candidate_SEQ = SEQ[i:i+probe_length]
+        candidate_GC = gc_percentage(candidate_SEQ)
+        if candidate_GC < min_GC:
+            min_GC = candidate_GC
+            min_idx = i
+            min_SEQ = candidate_SEQ
+    return (min_idx, min_SEQ)
+
+
+def design_probe(SEQ, probe_length, probe_number, move_range):
     seq_length = len(SEQ)
     list_probe = []
     if probe_number == 1:
-        start_position = max( (seq_length - probe_length)/2 , 0)
-        probe_SEQ = SEQ[start_position:start_position+min(seq_length,probe_length)]
-        list_probe.append((start_position, probe_SEQ))
+        start_position = round(seq_length - probe_length)/2
+        range_st = max(start_position - move_range, 0)
+        range_ed = min(start_position + move_range, max(seq_length-probe_length, 0))
+        (probe_position, probe_SEQ) = choose_low_gc_seq(SEQ, probe_length, range_st, range_ed)
+        list_probe.append((probe_position, probe_SEQ))
     else:
-        interval = int((seq_length - probe_length)/(probe_number - 1))
+        interval = round((seq_length - probe_length)/(probe_number - 1))
+        if move_range == None:
+            move_range = max(0, round((interval-probe_length)/4))
         start_position = 0
         for idx in range(probe_number-1):
-            probe_SEQ = SEQ[start_position:start_position+probe_length]
-            list_probe.append((start_position, probe_SEQ))
+            range_st = max(0, start_position - move_range) 
+            range_ed = start_position + move_range
+            probe_position, probe_SEQ = choose_low_gc_seq(SEQ, probe_length, range_st, range_ed) # SEQ[start_position:start_position+probe_length]
+            list_probe.append((probe_position, probe_SEQ))
             start_position += interval
-        probe_SEQ = SEQ[-probe_length:]
+
         start_position = seq_length - probe_length
-        list_probe.append((start_position, probe_SEQ))
+        range_st = start_position - move_range
+        range_ed = start_position
+        (probe_position, probe_SEQ) = choose_low_gc_seq(SEQ, probe_length, range_st, range_ed)
+        list_probe.append((probe_position, probe_SEQ))
 
     return list_probe
 
@@ -99,24 +126,37 @@ if __name__ == "__main__":
     fn_fasta = args.fn_fasta
     probe_length = args.probe_length
     probe_number = args.probe_number
+    move_range   = args.move_range
     gc_percentage_threshold = args.gc_percentage_threshold
     fo_probe_csv = args.fo_probe_csv
     
     dict_target = parse_fasta(fn_fasta)
     f_o = open(fo_probe_csv, 'w')
+    max_GC = 0
+    min_GC = 100
+    total_GC = 0
+    seq_num  = 0
     for (name, SEQ) in sorted(dict_target.items()):
-        list_probe = design_probe(SEQ, probe_length, probe_number)
+        list_probe = design_probe(SEQ, probe_length, probe_number, move_range)
         #print(name)
         #print("seq_length =", len(SEQ))
         parsed_name = name.split('|')[1]
         for idx, probe_info in enumerate(list_probe):
             probe_pos = probe_info[0]
             probe_SEQ = probe_info[1]
+            GC = gc_percentage(probe_SEQ)
+            # === output part === #
             f_o.write(parsed_name + '_' + str(idx) + '_pos:' + str(probe_pos) + ',')
             f_o.write(probe_SEQ + ',')
-            f_o.write(str(gc_percentage(probe_SEQ)) + '\n')
+            f_o.write(str(GC) + '\n')
+            # === output part === #
+            if GC > max_GC: max_GC = GC
+            if GC < min_GC: min_GC = GC
+            total_GC += GC
+            seq_num += 1
     f_o.close()
-
-
+    # report
+    print("There are", seq_num, "probes generated...")
+    print("Max GC in probes is", max_GC, "%. Min GC in probes is", min_GC, "%. Average GC in probes is", total_GC/seq_num, "%")
 
 
