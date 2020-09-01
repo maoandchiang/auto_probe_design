@@ -141,7 +141,10 @@ if __name__ == "__main__":
         list_probe = design_probe(SEQ, probe_length, probe_number, move_range)
         #print(name)
         #print("seq_length =", len(SEQ))
-        parsed_name = name.split('|')[1]
+        try:
+            parsed_name = name.split('|')[1]
+        except:
+            parsed_name = name.split()[0]
         for idx, probe_info in enumerate(list_probe):
             probe_pos = probe_info[0]
             probe_SEQ = probe_info[1]
