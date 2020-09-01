@@ -136,6 +136,7 @@ if __name__ == "__main__":
     min_GC = 100
     total_GC = 0
     seq_num  = 0
+    gct_num  = 0
     for (name, SEQ) in sorted(dict_target.items()):
         list_probe = design_probe(SEQ, probe_length, probe_number, move_range)
         #print(name)
@@ -145,10 +146,13 @@ if __name__ == "__main__":
             probe_pos = probe_info[0]
             probe_SEQ = probe_info[1]
             GC = gc_percentage(probe_SEQ)
+            if GC > gc_percentage_threshold:
+                print("WARNING:", parsed_name + '_' + str(idx), "got", round(GC,2), "% GC content.")
+                gct_num += 1
             # === output part === #
             f_o.write(parsed_name + '_' + str(idx) + '_pos:' + str(probe_pos) + ',')
             f_o.write(probe_SEQ + ',')
-            f_o.write(str(GC) + '\n')
+            f_o.write(str(round(GC,2)) + '\n')
             # === output part === #
             if GC > max_GC: max_GC = GC
             if GC < min_GC: min_GC = GC
@@ -156,7 +160,9 @@ if __name__ == "__main__":
             seq_num += 1
     f_o.close()
     # report
-    print("There are", seq_num, "probes generated...")
-    print("Max GC in probes is", max_GC, "%. Min GC in probes is", min_GC, "%. Average GC in probes is", total_GC/seq_num, "%")
+    print()
+    print(seq_num, "probes generated...")
+    print("Max GC in probes is", round(max_GC,2), "%. Min GC in probes is", round(min_GC,2), "%. Average GC in probes is", round(total_GC/seq_num,2), "%")
+    print("There are", gct_num, "probes exceed threshold", gc_percentage_threshold, "% GC content.")
 
 
