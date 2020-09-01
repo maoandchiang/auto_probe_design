@@ -137,10 +137,9 @@ if __name__ == "__main__":
     total_GC = 0
     seq_num  = 0
     gct_num  = 0
+    f_o.write("Probe_name,Probe_SEQ,GC_content_percentage\n")
     for (name, SEQ) in sorted(dict_target.items()):
         list_probe = design_probe(SEQ, probe_length, probe_number, move_range)
-        #print(name)
-        #print("seq_length =", len(SEQ))
         try:
             parsed_name = name.split('|')[1]
         except:
